@@ -17,7 +17,7 @@ class TransferBase(object):
 	def __init__(self):
 		import threading
 		self.event = threading.Event()
-		self.key_list = ['port', 'u', 'd', 'transfer_enable', 'passwd', 'enable']
+		self.key_list = ['port', 'u', 'd', 'transfer_enable', 'passwd', 'enable', 'expire_time', 'vip']
 		self.last_get_transfer = {} #上一次的实际流量
 		self.last_update_transfer = {} #上一次更新到的流量（小于等于实际流量）
 		self.force_update_transfer = set() #强制推入数据库的ID
@@ -79,6 +79,7 @@ class TransferBase(object):
 	def del_server_out_of_bound_safe(self, last_rows, rows):
 		#停止超流量的服务
 		#启动没超流量的服务
+                #增加时间判断//2017/1/13
 		try:
 			switchrule = importloader.load('switchrule')
 		except Exception as e:
@@ -87,15 +88,17 @@ class TransferBase(object):
 		new_servers = {}
 		allow_users = {}
 		mu_servers  = {}
-		for row in rows:
+		
+                for row in rows:
 			try:
-				allow = switchrule.isTurnOn(row) and row['enable'] == 1 and row['u'] + row['d'] < row['transfer_enable']
+				allow = switchrule.isTurnOn(row,self.cfg) and row['enable'] == 1 and row['u'] + row['d'] < row['transfer_enable']
 			except Exception as e:
 				allow = False
-
+                      
 			port = row['port']
 			passwd = common.to_bytes(row['passwd'])
 			cfg = {'password': passwd}
+                        #logging.info('check use [%s] allow [%s]' % (row['id'], allow))
 			if 'id' in row:
 				self.port_uid_table[row['port']] = row['id']
 
@@ -267,6 +270,7 @@ class DbTransfer(TransferBase):
 			"password": "pass",
 			"db": "shadowsocks",
 			"node_id": 0,
+                        "vip": 0,
 			"transfer_mul": 1.0,
 			"ssl_enable": 0,
 			"ssl_ca": "",
